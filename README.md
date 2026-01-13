@@ -180,44 +180,59 @@ log.Error("Operation failed",
 ### 詳細步驟
 
 1. **配置載入**：從 `config.yaml` 讀取 OTLP 端點設定
+   - 📄 檔案：`internal/config/config.go`
+   - 📄 使用：`main.go`
 
 2. **OTLP Trace Exporter 初始化**：建立 OpenTelemetry Trace Exporter (gRPC)
+   - 📄 檔案：`internal/logger/otlp.go` (L57-63)
 
 3. **OTLP Log Exporter 初始化**：建立 OpenTelemetry Log Exporter (gRPC)
+   - 📄 檔案：`internal/logger/otlp.go` (L79-87)
 
 4. **TracerProvider 設定**：建立 TracerProvider 並設為全域提供者
+   - 📄 檔案：`internal/logger/otlp.go` (L65-70)
 
 5. **LoggerProvider 設定**：建立 LoggerProvider 並設為全域提供者
+   - 📄 檔案：`internal/logger/otlp.go` (L89-94)
 
 6. **Propagator 設定**：配置 TraceContext 和 Baggage propagator
+   - 📄 檔案：`internal/logger/otlp.go` (L72-76)
 
 7. **otelzap Bridge**：
    - 使用 `otelzap.NewCore()` 建立橋接 Core
    - 自動檢測 `context.Context` 類型的字段
    - 從 context 中提取 trace ID 和 span ID
+   - 📄 檔案：`internal/logger/otlp.go` (L113-116)
 
 8. **Zap Logger 配置**：
    - 建立控制台 Core（過濾掉 context 字段）
    - 建立 otelzap Core（保留 context 字段）
    - 使用 Tee 結合兩個 Core（雙重輸出）
+   - 📄 檔案：`internal/logger/otlp.go` (L96-120)
+   - 📄 Context 過濾器實現：`internal/logger/otlp.go` (L26-49)
 
 9. **Context-aware 日誌函數**：
    - `InfoContext(ctx, msg, fields...)` 等函數
    - 自動添加 `zap.Any("context", ctx)` 字段
    - 無需手動提取 trace ID 和 span ID
+   - 📄 檔案：`internal/logger/otlp.go` (L157-182)
 
 10. **日誌輸出流程**：
     - **控制台 Core**：過濾掉 context 字段，輸出簡潔的日誌
     - **otelzap Core**：保留 context 字段，自動提取 trace context
     - **OTLP Exporter**：將日誌（含 trace context）發送到 Collector
+    - 📄 檔案：`main.go` (使用 logger.InfoContext 等函數)
 
 11. **Trace Context 自動注入**：
     - otelzap 檢測到 `context.Context` 字段
     - 調用 `trace.SpanFromContext(ctx)` 提取 span
     - 將 `TraceID` 和 `SpanID` 注入到 OpenTelemetry log record
     - 發送到 OTLP backend 時包含完整的 trace context
+    - 📄 機制：由 `go.opentelemetry.io/contrib/bridges/otelzap` 實現
 
 12. **優雅關閉**：確保所有日誌和追蹤都已同步並發送後才結束程式
+    - 📄 檔案：`internal/logger/otlp.go` (L123-133)
+    - 📄 使用：`main.go` (defer shutdown)
 
 ## 主要依賴套件
 
