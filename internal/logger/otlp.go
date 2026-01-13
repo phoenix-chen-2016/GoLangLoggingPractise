@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -23,6 +24,36 @@ import (
 )
 
 var Logger *zap.Logger
+
+// contextFilterCore filters out the "context" field from logs
+type contextFilterCore struct {
+	zapcore.Core
+}
+
+func (c *contextFilterCore) With(fields []zapcore.Field) zapcore.Core {
+	return &contextFilterCore{c.Core.With(filterContextField(fields))}
+}
+
+func (c *contextFilterCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	if c.Enabled(ent.Level) {
+		return ce.AddCore(ent, c)
+	}
+	return ce
+}
+
+func (c *contextFilterCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	return c.Core.Write(ent, filterContextField(fields))
+}
+
+func filterContextField(fields []zapcore.Field) []zapcore.Field {
+	filtered := make([]zapcore.Field, 0, len(fields))
+	for _, field := range fields {
+		if field.Key != "context" {
+			filtered = append(filtered, field)
+		}
+	}
+	return filtered
+}
 
 func InitOTLP(ctx context.Context, cfg *config.Config) (func(context.Context) error, error) {
 	res, err := resource.New(ctx,
@@ -105,6 +136,9 @@ func InitOTLP(ctx context.Context, cfg *config.Config) (func(context.Context) er
 		zapcore.InfoLevel,
 	)
 
+	// Wrap console core to filter out context field
+	consoleCore = &contextFilterCore{Core: consoleCore}
+
 	otelCore := otelzap.NewCore(
 		cfg.Service.Name,
 		otelzap.WithLoggerProvider(loggerProvider),
@@ -134,4 +168,47 @@ func InitOTLP(ctx context.Context, cfg *config.Config) (func(context.Context) er
 	}
 
 	return shutdown, nil
+}
+
+func extractTraceFields(ctx context.Context) []zap.Field {
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return nil
+	}
+
+	spanCtx := span.SpanContext()
+	return []zap.Field{
+		zap.String("trace_id", spanCtx.TraceID().String()),
+		zap.String("span_id", spanCtx.SpanID().String()),
+	}
+}
+
+func DebugContext(ctx context.Context, msg string, fields ...zap.Field) {
+	// otelzap automatically extracts trace context from ctx field
+	fields = append(fields, zap.Any("context", ctx))
+	Logger.Debug(msg, fields...)
+}
+
+func InfoContext(ctx context.Context, msg string, fields ...zap.Field) {
+	// otelzap automatically extracts trace context from ctx field
+	fields = append(fields, zap.Any("context", ctx))
+	Logger.Info(msg, fields...)
+}
+
+func WarnContext(ctx context.Context, msg string, fields ...zap.Field) {
+	// otelzap automatically extracts trace context from ctx field
+	fields = append(fields, zap.Any("context", ctx))
+	Logger.Warn(msg, fields...)
+}
+
+func ErrorContext(ctx context.Context, msg string, fields ...zap.Field) {
+	// otelzap automatically extracts trace context from ctx field
+	fields = append(fields, zap.Any("context", ctx))
+	Logger.Error(msg, fields...)
+}
+
+func FatalContext(ctx context.Context, msg string, fields ...zap.Field) {
+	// otelzap automatically extracts trace context from ctx field
+	fields = append(fields, zap.Any("context", ctx))
+	Logger.Fatal(msg, fields...)
 }
