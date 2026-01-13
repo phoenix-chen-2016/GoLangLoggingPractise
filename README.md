@@ -117,7 +117,7 @@ log.Warn("High resource usage",
 log.Error("Operation failed",
     zap.String("error_code", "DB_CONNECTION_FAILED"),
     zap.Int("retry_count", 3))
-
+```
 ## 專案結構
 
 ```
@@ -130,7 +130,6 @@ log.Error("Operation failed",
 │   ├── config/
 │   │   └── config.go           # 配置載入器
 │   └── logger/
-│       └── otlp.go             # OTLP 日誌初始化與 otelzap bridge
 └── README.md                    # 本文件
 ```
 
