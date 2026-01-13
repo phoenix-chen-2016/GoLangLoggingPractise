@@ -130,6 +130,7 @@ log.Error("Operation failed",
 │   ├── config/
 │   │   └── config.go           # 配置載入器
 │   └── logger/
+│       └── otlp.go             # OTLP 初始化與 otelzap bridge
 └── README.md                    # 本文件
 ```
 
