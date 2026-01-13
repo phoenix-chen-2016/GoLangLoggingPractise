@@ -1,0 +1,7 @@
+otlp:
+  endpoint: "localhost:4317"
+  insecure: true
+  
+service:
+  name: "golang-logging-demo"
+  version: "1.0.0"
